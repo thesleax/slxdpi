@@ -26,9 +26,20 @@ echo.
 echo [dns]
 powershell -NoProfile -Command "Get-DnsClientServerAddress -AddressFamily IPv4 | Where-Object {$_.ServerAddresses} | ForEach-Object { '  ' + $_.InterfaceAlias + ': ' + ($_.ServerAddresses -join ', ') }"
 echo.
-echo [reachability]  (HTTP 000 = blocked/unreachable)
+echo [dns check]  (system answer differs from real answer = ISP DNS tampering)
+echo   system DNS says:
+powershell -NoProfile -Command "try { '    ' + ((Resolve-DnsName clientsettingscdn.roblox.com -Type A -DnsOnly -ErrorAction Stop | Where-Object IPAddress).IPAddress -join ', ') } catch { '    FAILED: ' + $_.Exception.Message }"
+echo   real answer (encrypted DoH):
+powershell -NoProfile -Command "try { $r = Invoke-RestMethod -TimeoutSec 8 -Headers @{accept='application/dns-json'} 'https://cloudflare-dns.com/dns-query?name=clientsettingscdn.roblox.com&type=A'; '    ' + (($r.Answer | Where-Object type -eq 1).data -join ', ') } catch { '    FAILED: ' + $_.Exception.Message }"
+echo.
+echo [reachability, system DNS]  (HTTP 000 = blocked/unreachable)
 for %%H in (www.roblox.com clientsettingscdn.roblox.com tr.rbxcdn.com discord.com gateway.discord.gg) do (
-  curl -s -o nul --max-time 8 -w "  %%H -> HTTP %%{http_code}\n" https://%%H/
+  curl -s -o nul --ssl-no-revoke --max-time 8 -w "  %%H -> HTTP %%{http_code}\n" https://%%H/
+)
+echo.
+echo [reachability, encrypted DNS]  (works here but not above = DNS is the problem)
+for %%H in (www.roblox.com clientsettingscdn.roblox.com tr.rbxcdn.com discord.com gateway.discord.gg) do (
+  curl -s -o nul --ssl-no-revoke --doh-url https://cloudflare-dns.com/dns-query --max-time 8 -w "  %%H -> HTTP %%{http_code}\n" https://%%H/
 )
 echo.
 pause

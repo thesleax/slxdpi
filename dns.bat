@@ -21,12 +21,12 @@ netsh dns add encryption server=1.1.1.1 dohtemplate=https://cloudflare-dns.com/d
 netsh dns add encryption server=1.0.0.1 dohtemplate=https://cloudflare-dns.com/dns-query autoupgrade=yes udpfallback=no >nul 2>&1
 netsh dns add encryption server=2606:4700:4700::1111 dohtemplate=https://cloudflare-dns.com/dns-query autoupgrade=yes udpfallback=no >nul 2>&1
 ipconfig /flushdns >nul 2>&1
-echo [DNS] "%IF%" -> Cloudflare DoH (encrypted) enabled.
+echo [DNS] "%IF%" -^> Cloudflare DoH (encrypted) enabled.
 exit /b 0
 
 :restore
 netsh interface ipv4 set dnsservers name="%IF%" dhcp >nul 2>&1
 netsh interface ipv6 set dnsservers name="%IF%" dhcp >nul 2>&1
 ipconfig /flushdns >nul 2>&1
-echo [DNS] "%IF%" -> restored to automatic (DHCP) DNS.
+echo [DNS] "%IF%" -^> restored to automatic (DHCP) DNS.
 exit /b 0
