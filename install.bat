@@ -20,6 +20,8 @@ set "BIN=%DEST%\bin"
 set "WINWS=%BIN%\zapret-winws\winws.exe"
 set "LISTDIR=%DEST%\lists"
 set "SVC=SLXDPI"
+set "ZIP=%TEMP%\slxdpi-zapret.zip"
+set "EX=%TEMP%\slxdpi-zapret"
 
 echo.
 echo === Installing SLXDPI -> %DEST% ===
@@ -35,10 +37,9 @@ if /i not "%SRC%"=="%DEST%\" (
 rem --- 2) Download zapret binaries (if missing) ---
 if not exist "%WINWS%" (
   echo [*] Downloading zapret Windows bundle...
-  set "ZIP=%TEMP%\slxdpi-zapret.zip"
-  set "EX=%TEMP%\slxdpi-zapret"
+  rmdir /s /q "%EX%" >nul 2>&1
   powershell -NoProfile -Command ^
-    "try { Invoke-WebRequest -UseBasicParsing 'https://github.com/bol-van/zapret-win-bundle/archive/refs/heads/master.zip' -OutFile '%ZIP%'; Expand-Archive -Force '%ZIP%' '%EX%' } catch { exit 1 }"
+    "$ProgressPreference='SilentlyContinue'; try { Invoke-WebRequest -UseBasicParsing 'https://github.com/bol-van/zapret-win-bundle/archive/refs/heads/master.zip' -OutFile '%ZIP%'; Expand-Archive -Force -LiteralPath '%ZIP%' -DestinationPath '%EX%' } catch { exit 1 }"
   if errorlevel 1 (
     echo [ERROR] Download failed. GitHub may be blocked on your network.
     echo         Download manually: https://github.com/bol-van/zapret-win-bundle
