@@ -25,9 +25,14 @@ leaves banking, 3-D Secure, and everything else completely untouched.
 
 ## Install
 
-1. Copy the `slxdpi` folder to a Windows machine.
-2. Right-click `install.bat` → **Run as administrator**.
+1. Download the ZIP (Code → Download ZIP) and extract it.
+2. Right-click **`slxdpi.cmd`** → **Run as administrator**, then press **1** (Install).
 3. When it finishes: open Roblox (images should load), join a Discord voice channel.
+
+`slxdpi.cmd` is the one place to manage everything. It shows the live state
+(service, encrypted DNS, method) and only offers actions that make sense:
+it won't reinstall when installed or stop what is already stopped. After
+installing, it is also at `C:\slxdpi\slxdpi.cmd`.
 
 The installer copies files to `C:\slxdpi`, downloads the zapret binaries from
 the [official bundle](https://github.com/bol-van/zapret-win-bundle) and
@@ -46,6 +51,8 @@ applies it to the service. The installer runs it automatically; run it again
 any time things stop working (e.g. after your ISP changes its filtering).
 
 ## Daily use
+
+Everything below is also in the `slxdpi.cmd` menu.
 
 | File | Action |
 |---|---|
@@ -95,6 +102,7 @@ fix. Only SNI/DNS-level blocks (like Discord and Roblox) can be bypassed.
 
 ```
 slxdpi/
+  slxdpi.cmd         control menu (start here)
   install.bat        installer (admin)
   autotune.bat       auto-detects the working bypass method
   start/stop/status/uninstall.bat

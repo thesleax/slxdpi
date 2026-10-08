@@ -68,7 +68,7 @@ echo       copying from %PSRC% >> "%LOG%"
 if not exist "%LISTDIR%" mkdir "%LISTDIR%"
 copy /y "%PSRC%lists\strategies.txt" "%LISTDIR%\" >> "%LOG%" 2>&1
 if not exist "%LISTDIR%\list-general.txt" copy /y "%PSRC%lists\list-general.txt" "%LISTDIR%\" >> "%LOG%" 2>&1
-for %%F in (dnscrypt-proxy.toml strategy.cmd autotune.bat start.bat stop.bat status.bat uninstall.bat blockcheck.bat dns.bat) do copy /y "%PSRC%%%F" "%DEST%\" >> "%LOG%" 2>&1
+for %%F in (slxdpi.cmd dnscrypt-proxy.toml strategy.cmd autotune.bat start.bat stop.bat status.bat uninstall.bat blockcheck.bat dns.bat) do copy /y "%PSRC%%%F" "%DEST%\" >> "%LOG%" 2>&1
 if not exist "%LISTDIR%\list-general.txt" goto :nolist
 if not exist "%LISTDIR%\strategies.txt" goto :nolist
 if not exist "%DEST%\autotune.bat" goto :nolist
@@ -137,7 +137,7 @@ echo.
 if "%TUNED%"=="0" goto :done_untuned
 echo === INSTALL COMPLETE ===
 echo  - Service: %SVC% (starts automatically on Windows boot)
-echo  - On/Off: start.bat / stop.bat   Diagnose: status.bat   Remove: uninstall.bat
+echo  - Manage everything from one menu: C:\slxdpi\slxdpi.cmd (run as administrator)
 echo  - Stopped working later? run autotune.bat (re-detects the method)
 echo.
 echo  TEST: open Roblox (images should load), join a Discord voice channel.
