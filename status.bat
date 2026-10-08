@@ -9,6 +9,10 @@ sc query SLXDPI | find "STATE" || echo   SLXDPI service NOT installed (install d
 if exist "C:\slxdpi\bin\zapret-winws\winws.exe" (echo   winws.exe: present) else (echo   winws.exe: MISSING - antivirus deleted it or download failed)
 tasklist /fi "imagename eq winws.exe" | find /i "winws.exe" >nul && echo   winws process: running || echo   winws process: NOT running
 echo.
+echo [network]
+curl -s --max-time 5 -w "\n" https://ipinfo.io/org || echo   (could not detect)
+if exist "C:\slxdpi\tuned.txt" (echo   auto-detected method:& type "C:\slxdpi\tuned.txt") else (echo   auto-detected method: none yet - run autotune.bat)
+echo.
 echo [conflicts]
 sc query GoodbyeDPI >nul 2>&1 && echo   WARNING: GoodbyeDPI service installed - it conflicts, remove it || echo   GoodbyeDPI service: none
 tasklist | find /i "goodbyedpi" >nul && echo   WARNING: goodbyedpi.exe running - close it || echo   goodbyedpi.exe: not running

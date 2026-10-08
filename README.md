@@ -30,18 +30,29 @@ leaves banking, 3-D Secure, and everything else completely untouched.
 3. When it finishes: open Roblox (images should load), join a Discord voice channel.
 
 The installer copies files to `C:\slxdpi`, downloads the zapret binaries from
-the [official bundle](https://github.com/bol-van/zapret-win-bundle), installs a
-Windows service named `SLXDPI` (auto-starts on boot), and switches DNS to
-Cloudflare DoH.
+the [official bundle](https://github.com/bol-van/zapret-win-bundle), switches
+DNS to Cloudflare DoH, **auto-detects the bypass method that works on your
+connection**, and installs a Windows service named `SLXDPI` (auto-starts on boot).
+
+## Automatic network detection
+
+You never need to know or pick your ISP. Bypass methods differ between ISPs
+(and even between resellers on the same Türk Telekom infrastructure), so
+`autotune.bat` doesn't guess from the ISP name. It **tests** each candidate in
+`lists/strategies.txt` with a real HTTPS connection to Roblox (settings, image
+CDN, site) and Discord, keeps the first one that works in `tuned.txt`, and
+applies it to the service. The installer runs it automatically; run it again
+any time things stop working (e.g. after your ISP changes its filtering).
 
 ## Daily use
 
 | File | Action |
 |---|---|
 | `start.bat` / `stop.bat` | Turn on / off |
-| `status.bat` | Service + DNS status, `tr.rbxcdn.com` resolution test |
+| `status.bat` | Full diagnostics: service, network, method, DNS, live reachability |
+| `autotune.bat` | Re-detect the working bypass method for your connection |
 | `uninstall.bat` | Remove the service, restore DNS |
-| `blockcheck.bat` | Find the right settings for your ISP if the defaults fail |
+| `blockcheck.bat` | Deep manual search (zapret's own tool) if autotune finds nothing |
 
 ## Payment safety
 
@@ -61,23 +72,24 @@ fix. Only SNI/DNS-level blocks (like Discord and Roblox) can be bypassed.
 
 ## Not working?
 
-Bypass parameters differ per ISP (Superonline, Turkcell, TTNET…). If the
-default strategy fails:
-
-1. Run `blockcheck.bat` → when prompted, test `discord.com` and `tr.rbxcdn.com`.
-2. Paste the resulting `--dpi-desync=...` line into the matching variable in `strategy.cmd`.
-3. Run `stop.bat` then `start.bat`.
+1. Run `status.bat` — it shows what's wrong (service, antivirus, DNS, which sites are reachable).
+2. Run `autotune.bat` to re-detect the method.
+3. Still nothing? Run `blockcheck.bat` (test `discord.com`, `tr.rbxcdn.com`), put the
+   working `--dpi-desync=...` line into `C:\slxdpi\tuned.txt`, then `stop.bat` + `start.bat`.
+4. Installer problems are logged to `C:\slxdpi\install.log`.
 
 ## Project layout
 
 ```
 slxdpi/
   install.bat        installer (admin)
+  autotune.bat       auto-detects the working bypass method
   start/stop/status/uninstall.bat
-  blockcheck.bat     per-ISP setting finder
+  blockcheck.bat     deep manual search (fallback)
   dns.bat            DoH on/off (called by installer)
-  strategy.cmd       DPI parameters (tune per ISP)
+  strategy.cmd       builds winws arguments (uses tuned.txt)
   lists/list-general.txt   bypassed domains (NO banks)
+  lists/strategies.txt     autotune candidates, least invasive first
   tools/check-lists.sh     list validity check
   bin/               zapret binaries (downloaded by installer)
 ```

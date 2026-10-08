@@ -27,33 +27,36 @@ if not exist "%DEST%" mkdir "%DEST%"
 echo SLXDPI install %DATE% %TIME% > "%LOG%"
 echo SRC=%SRC% >> "%LOG%"
 
-rem --- [1/6] Defender exclusion (zapret/WinDivert = antivirus FALSE POSITIVE) ---
-echo [1/6] Windows Defender exclusion for %DEST% ...
+rem --- [1/7] Defender exclusion (zapret/WinDivert = antivirus FALSE POSITIVE) ---
+echo [1/7] Windows Defender exclusion for %DEST% ...
 powershell -NoProfile -Command "try { Add-MpPreference -ExclusionPath '%DEST%' -ErrorAction Stop } catch {}"
 powershell -NoProfile -Command "try { if ((Get-MpPreference -ErrorAction Stop).ExclusionPath -contains '%DEST%'){exit 0} else {exit 3} } catch { exit 0 }"
 if errorlevel 3 goto :noexclusion
 echo       OK
 
-rem --- [2/6] Project files: copy from here, else fetch from GitHub ---
-echo [2/6] Project files ...
-if exist "%LISTDIR%\list-general.txt" goto :files_ok
+rem --- [2/7] Project files: always refreshed (old installs leave stale scripts).
+rem     Copied from next to install.bat if complete, else fetched from GitHub.
+rem     Exception: list-general.txt is kept if present (user-added sites). ---
+echo [2/7] Project files ...
 set "PSRC=%SRC%"
-if exist "%SRC%lists\list-general.txt" goto :copy_files
+if exist "%SRC%lists\strategies.txt" goto :copy_files
 echo       not next to install.bat, fetching from GitHub ...
 call :fetch "https://github.com/thesleax/slxdpi/archive/refs/heads/main.zip"
 if errorlevel 1 goto :fail
 set "PSRC=%DL%\slxdpi-main\"
 :copy_files
 echo       copying from %PSRC% >> "%LOG%"
-xcopy "%PSRC%lists" "%LISTDIR%\" /e /i /y >> "%LOG%" 2>&1
-for %%F in (strategy.cmd start.bat stop.bat status.bat uninstall.bat blockcheck.bat dns.bat) do copy /y "%PSRC%%%F" "%DEST%\" >> "%LOG%" 2>&1
-:files_ok
+if not exist "%LISTDIR%" mkdir "%LISTDIR%"
+copy /y "%PSRC%lists\strategies.txt" "%LISTDIR%\" >> "%LOG%" 2>&1
+if not exist "%LISTDIR%\list-general.txt" copy /y "%PSRC%lists\list-general.txt" "%LISTDIR%\" >> "%LOG%" 2>&1
+for %%F in (strategy.cmd autotune.bat start.bat stop.bat status.bat uninstall.bat blockcheck.bat dns.bat) do copy /y "%PSRC%%%F" "%DEST%\" >> "%LOG%" 2>&1
 if not exist "%LISTDIR%\list-general.txt" goto :nolist
-if not exist "%DEST%\strategy.cmd" goto :nolist
+if not exist "%LISTDIR%\strategies.txt" goto :nolist
+if not exist "%DEST%\autotune.bat" goto :nolist
 echo       OK
 
-rem --- [3/6] zapret binaries ---
-echo [3/6] zapret engine ...
+rem --- [3/7] zapret binaries ---
+echo [3/7] zapret engine ...
 if exist "%WINWS%" goto :bin_ok
 echo       downloading zapret Windows bundle (~20 MB) ...
 call :fetch "https://github.com/bol-van/zapret-win-bundle/archive/refs/heads/master.zip"
@@ -64,24 +67,28 @@ if not exist "%WINWS%" goto :nowinws
 rmdir /s /q "%DL%" >nul 2>&1
 echo       OK
 
-rem --- [4/6] Service (auto-start on boot). Space-free path -> no inner quotes ---
-echo [4/6] Windows service ...
+rem --- [4/7] DNS -> Cloudflare DoH (fixes DNS poisoning; must precede tests) ---
+echo [4/7] Encrypted DNS ...
+call "%DEST%\dns.bat" set
+
+rem --- [5/7] Auto-detect the bypass method that works on this network ---
+echo [5/7] Detecting the right bypass method for your network ...
+call "%DEST%\autotune.bat" /install
+if errorlevel 1 echo       continuing with the default method
+
+rem --- [6/7] Service (auto-start on boot). Space-free path -> no inner quotes ---
+echo [6/7] Windows service ...
 call "%DEST%\strategy.cmd"
-set "ARGS=--wf-tcp=%SLX_WF_TCP% --wf-udp=%SLX_WF_UDP% %SLX_TCP% --new %SLX_QUIC% --new %SLX_VOICE%"
-echo ARGS=%ARGS% >> "%LOG%"
+echo ARGS=%SLX_ARGS% >> "%LOG%"
 sc stop %SVC% >nul 2>&1
 sc delete %SVC% >nul 2>&1
-sc create %SVC% binPath= "%WINWS% %ARGS%" start= auto DisplayName= "SLXDPI (DPI bypass)" >> "%LOG%" 2>&1
+sc create %SVC% binPath= "%WINWS% %SLX_ARGS%" start= auto DisplayName= "SLXDPI (DPI bypass)" >> "%LOG%" 2>&1
 if errorlevel 1 goto :nosvc
 sc description %SVC% "DPI bypass for Turkey: Discord, Roblox and blocked sites. Banking/payments are NOT affected." >nul
 echo       OK
 
-rem --- [5/6] DNS -> Cloudflare DoH (fixes Roblox image / DNS poisoning) ---
-echo [5/6] Encrypted DNS ...
-call "%DEST%\dns.bat" set
-
-rem --- [6/6] Start ---
-echo [6/6] Starting ...
+rem --- [7/7] Start ---
+echo [7/7] Starting ...
 sc start %SVC% >> "%LOG%" 2>&1
 timeout /t 3 /nobreak >nul
 sc query %SVC% | find "RUNNING" >nul
@@ -92,7 +99,7 @@ echo.
 echo === INSTALL COMPLETE ===
 echo  - Service: %SVC% (starts automatically on Windows boot)
 echo  - On/Off: start.bat / stop.bat   Diagnose: status.bat   Remove: uninstall.bat
-echo  - Not working? run blockcheck.bat (finds the right settings for your ISP)
+echo  - Stopped working later? run autotune.bat (re-detects the method)
 echo.
 echo  TEST: open Roblox (images should load), join a Discord voice channel.
 echo        Banking/payments (3-D Secure) are NOT affected - not in the list.

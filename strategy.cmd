@@ -1,25 +1,18 @@
 @echo off
 rem ============================================================
-rem  SLXDPI - zapret bypass strategy (tune per ISP)
+rem  SLXDPI - zapret (winws) arguments. Builds SLX_ARGS.
+rem  The TCP bypass method (SLX_DESYNC) is picked automatically by
+rem  autotune.bat for YOUR network and saved to tuned.txt, which
+rem  overrides the default below. Re-run autotune.bat to re-detect.
 rem ============================================================
-rem  Holds the DPI-bypass parameters passed to winws.exe.
-rem  The defaults work on most Turkish ISPs. If they don't,
-rem  run blockcheck.bat and paste the parameters it finds here.
-rem
-rem  LISTDIR is set by install.bat to C:\slxdpi\lists.
-rem ============================================================
+set "SLX_LIST=%~dp0lists\list-general.txt"
 
-rem --- Ports to capture (WinDivert global filter) ---
-set "SLX_WF_TCP=443"
-set "SLX_WF_UDP=443,50000-65535"
+rem Default TCP method, used only until autotune has run
+set "SLX_DESYNC=--dpi-desync=fake,multisplit --dpi-desync-split-pos=1 --dpi-desync-fooling=md5sig"
+if exist "%~dp0tuned.txt" set /p SLX_DESYNC=<"%~dp0tuned.txt"
 
-rem --- TCP 443: Roblox images (rbxcdn), Discord web, general sites ---
-set "SLX_TCP=--filter-tcp=443 --hostlist=%LISTDIR%\list-general.txt --dpi-desync=fake,split2 --dpi-desync-split-pos=1 --dpi-desync-fooling=md5sig --dpi-desync-ttl=0"
-
-rem --- UDP 443 QUIC: Discord and sites that use QUIC ---
-set "SLX_QUIC=--filter-udp=443 --hostlist=%LISTDIR%\list-general.txt --dpi-desync=fake --dpi-desync-repeats=6"
-
-rem --- UDP 50000-65535: Discord VOICE traffic (no hostname, port range) ---
-rem  ponytail: touches ALL UDP in this range; banks don't use it, games do
-rem  (and games are who we're helping). If it causes trouble, clear this line.
-set "SLX_VOICE=--filter-udp=50000-65535 --dpi-desync=fake --dpi-desync-repeats=6"
+rem Profiles (separated by --new):
+rem  1) TCP 443 + hostlist : Roblox (incl. rbxcdn images), Discord, listed sites
+rem  2) UDP 443 + hostlist : QUIC for the same sites
+rem  3) Discord voice      : only Discord/STUN packets on Discord's voice ports
+set "SLX_ARGS=--wf-tcp=443 --wf-udp=443,19294-19344,50000-50100 --filter-tcp=443 --hostlist=%SLX_LIST% %SLX_DESYNC% --new --filter-udp=443 --hostlist=%SLX_LIST% --dpi-desync=fake --dpi-desync-repeats=6 --new --filter-udp=19294-19344,50000-50100 --filter-l7=discord,stun --dpi-desync=fake --dpi-desync-repeats=6"
