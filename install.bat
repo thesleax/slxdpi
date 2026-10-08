@@ -33,18 +33,28 @@ rem     own folder stops Defender from deleting winws.exe mid-install. ---
 echo [*] Adding Windows Defender exclusion for %DEST% ...
 powershell -NoProfile -Command "try { Add-MpPreference -ExclusionPath '%DEST%' -ErrorAction Stop } catch {}"
 
-rem --- 1) Copy project files into the (now excluded) folder ---
-if /i not "%SRC%"=="%DEST%\" (
-  if exist "%SRC%lists\list-general.txt" (
-    xcopy "%SRC%lists"        "%LISTDIR%\"   /e /i /y >nul
-    copy  /y "%SRC%strategy.cmd" "%DEST%\"   >nul
-    copy  /y "%SRC%*.bat"        "%DEST%\"   >nul
-  )
-)
+rem --- 1) Ensure project files are in DEST.
+rem     If run from the extracted folder, copy the siblings. If run standalone
+rem     (just install.bat), fetch the project from GitHub. Either way works. ---
 if not exist "%LISTDIR%\list-general.txt" (
-  echo [ERROR] lists\list-general.txt not found. Run install.bat from inside the
-  echo         extracted slxdpi folder (the one that contains the 'lists' folder^).
-  pause & exit /b 1
+  if exist "%SRC%lists\list-general.txt" (
+    xcopy "%SRC%lists" "%LISTDIR%\" /e /i /y >nul
+    for %%F in (strategy.cmd start.bat stop.bat status.bat uninstall.bat blockcheck.bat dns.bat) do if exist "%SRC%%%F" copy /y "%SRC%%%F" "%DEST%\" >nul
+  ) else (
+    echo [*] Fetching SLXDPI project files from GitHub...
+    rmdir /s /q "%DL%" >nul 2>&1
+    mkdir "%DL%"
+    powershell -NoProfile -Command ^
+      "$ProgressPreference='SilentlyContinue'; try { Invoke-WebRequest -UseBasicParsing 'https://github.com/thesleax/slxdpi/archive/refs/heads/main.zip' -OutFile '%DL%\proj.zip'; Expand-Archive -Force -LiteralPath '%DL%\proj.zip' -DestinationPath '%DL%' } catch { exit 1 }"
+    if errorlevel 1 (
+      echo [ERROR] Could not fetch project files from GitHub.
+      echo         Extract the slxdpi ZIP fully and run install.bat from inside it.
+      pause & exit /b 1
+    )
+    xcopy "%DL%\slxdpi-main\lists" "%LISTDIR%\" /e /i /y >nul
+    for %%F in (strategy.cmd start.bat stop.bat status.bat uninstall.bat blockcheck.bat dns.bat) do copy /y "%DL%\slxdpi-main\%%F" "%DEST%\" >nul
+    rmdir /s /q "%DL%" >nul 2>&1
+  )
 )
 
 rem --- 2) Download zapret binaries INTO the excluded folder (if missing) ---
