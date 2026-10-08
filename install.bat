@@ -28,10 +28,27 @@ echo === Installing SLXDPI -> %DEST% ===
 if not exist "%DEST%" mkdir "%DEST%"
 
 rem --- 0) Windows Defender exclusion. zapret/WinDivert is flagged as a FALSE
-rem     POSITIVE (Trojan:Win32/...) because it inspects packets. Excluding our
-rem     own folder stops Defender from deleting winws.exe mid-install. ---
+rem     POSITIVE (Trojan:Win32/...) because it inspects packets. Without an
+rem     exclusion, Defender deletes the files mid-install. Add-MpPreference
+rem     fails silently when Tamper Protection is ON, so we verify it stuck. ---
 echo [*] Adding Windows Defender exclusion for %DEST% ...
 powershell -NoProfile -Command "try { Add-MpPreference -ExclusionPath '%DEST%' -ErrorAction Stop } catch {}"
+powershell -NoProfile -Command "try { if ((Get-MpPreference -ErrorAction Stop).ExclusionPath -contains '%DEST%'){exit 0} else {exit 3} } catch { exit 0 }"
+if errorlevel 3 (
+  echo.
+  echo [!] Could not add the Defender exclusion automatically.
+  echo     This is because "Tamper Protection" is ON. Add it by hand once:
+  echo.
+  echo       Windows Security  ^>  Virus ^& threat protection
+  echo       ^>  Manage settings  ^>  Exclusions  ^>  Add an exclusion
+  echo       ^>  Folder  ^>  type/select:  %DEST%
+  echo.
+  echo     Then run this installer again. (Turkish menu: Windows Guvenligi ^>
+  echo     Virus ve tehdit korumasi ^> Ayarlari yonet ^> Dislamalar ^> Klasor)
+  echo.
+  pause & exit /b 1
+)
+echo [OK] Defender exclusion active for %DEST%.
 
 rem --- 1) Ensure project files are in DEST.
 rem     If run from the extracted folder, copy the siblings. If run standalone
