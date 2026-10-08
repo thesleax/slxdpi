@@ -109,8 +109,10 @@ if errorlevel 1 echo       continuing without encrypted DNS - Roblox may still f
 
 rem --- [5/7] Auto-detect the bypass method that works on this network ---
 echo [5/7] Detecting the right bypass method for your network ...
+set "TUNED=1"
 call "%DEST%\autotune.bat" /install
-if errorlevel 1 echo       continuing with the default method
+if errorlevel 1 set "TUNED=0"
+if "%TUNED%"=="0" echo       continuing with the default method
 
 rem --- [6/7] Service (auto-start on boot). Space-free path -> no inner quotes ---
 echo [6/7] Windows service ...
@@ -132,6 +134,7 @@ if errorlevel 1 goto :nostart
 echo       OK
 
 echo.
+if "%TUNED%"=="0" goto :done_untuned
 echo === INSTALL COMPLETE ===
 echo  - Service: %SVC% (starts automatically on Windows boot)
 echo  - On/Off: start.bat / stop.bat   Diagnose: status.bat   Remove: uninstall.bat
@@ -143,6 +146,14 @@ echo  NOTE: do not run GoodbyeDPI at the same time.
 echo.
 pause
 exit /b 0
+
+:done_untuned
+echo === INSTALLED, BUT NO WORKING BYPASS METHOD WAS FOUND ===
+echo  The service runs with the default method, which may not work here.
+echo  Run status.bat and send its output, or run autotune.bat to retry.
+echo.
+pause
+exit /b 1
 
 rem ============================================================
 rem  :fetch <url>  -> downloads and extracts into %DL%

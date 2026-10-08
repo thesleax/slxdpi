@@ -19,6 +19,12 @@ set "FOUND="
 set "N=0"
 
 if not exist "%WINWS%" goto :nowinws
+
+rem GoodbyeDPI fights winws for the same traffic. Stop it, and keep its
+rem service (any service running goodbyedpi.exe) from coming back at boot.
+powershell -NoProfile -Command "Get-CimInstance Win32_Service | Where-Object PathName -match 'goodbyedpi' | ForEach-Object { Stop-Service -Name $_.Name -Force -ErrorAction SilentlyContinue; Set-Service -Name $_.Name -StartupType Disabled -ErrorAction SilentlyContinue; '      stopped + disabled GoodbyeDPI service: ' + $_.Name + '   (undo: sc config ' + $_.Name + ' start= auto)' }"
+taskkill /f /im goodbyedpi.exe >nul 2>&1 && echo       closed running goodbyedpi.exe
+timeout /t 2 /nobreak >nul
 tasklist | find /i "goodbyedpi.exe" >nul
 if not errorlevel 1 goto :gdpi
 
@@ -91,7 +97,7 @@ if /i not "%MODE%"=="/install" pause
 exit /b 1
 
 :gdpi
-echo [ERROR] GoodbyeDPI is running. Close it (and remove its service) first;
-echo         two DPI tools on the same connection break each other.
+echo [ERROR] GoodbyeDPI is still running and could not be stopped automatically.
+echo         Close it by hand (and remove its service), then run autotune.bat.
 if /i not "%MODE%"=="/install" pause
 exit /b 1
