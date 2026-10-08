@@ -2,7 +2,7 @@
 ## Windows sends every DNS query to 127.0.0.1; this forwards it over HTTPS
 ## to Cloudflare / Google / Quad9, so the ISP can't hijack or poison it
 ## (Turkish ISPs intercept plain port-53 DNS even to 1.1.1.1).
-## Works the same on Windows 10 and 11. Installed by dns.bat.
+## Works the same on Windows 10 and 11. Installed by slxdpi.cmd.
 
 listen_addresses = ['127.0.0.1:53', '[::1]:53']
 

@@ -1,148 +1,141 @@
 # SLXDPI
 
-A professional DPI-bypass system for Turkey. It restores access to services
-blocked by ISP deep-packet inspection — **Discord** (including voice) and
-**Roblox** (including images) — **without breaking card payments**.
+DPI bypass for Turkey. Restores **Discord** (including voice) and **Roblox**
+(including images) on DPI-filtering ISPs, **without breaking card payments**.
 
-Engine: **[zapret](https://github.com/bol-van/zapret) (winws)** · Windows service · local encrypted DNS ([dnscrypt-proxy](https://github.com/DNSCrypt/dnscrypt-proxy), DoH).
-**Windows only.** Runs as Administrator.
+One file to run. Windows 10 and 11. Requires Administrator.
+
+Built on [zapret](https://github.com/bol-van/zapret) (winws) and
+[dnscrypt-proxy](https://github.com/DNSCrypt/dnscrypt-proxy).
+
+## Quick start
+
+1. **Code → Download ZIP**, then extract it.
+2. Right-click **`slxdpi.cmd`** → **Run as administrator**.
+3. Press **1** (Install). When it says `INSTALL COMPLETE`, open Roblox.
+
+That's it. SLXDPI runs as a Windows service and starts with Windows.
+
+## The menu
+
+```
+  SLXDPI 1.1   DPI bypass for Turkey  -  Discord, Roblox  -  payments untouched
+  ------------------------------------------------------------------------------
+  Service : RUNNING
+  DNS     : ENCRYPTED
+  Method  : auto-detected for this network
+  ------------------------------------------------------------------------------
+
+  [1] Install               - already installed
+  [2] Start                 - not available
+  [3] Stop
+  [4] Re-detect method
+  [5] Diagnostics
+  [6] Uninstall
+  [7] Advanced: zapret blockcheck
+  [0] Exit
+```
+
+The menu reads the real state every time and only runs actions that make
+sense: it won't reinstall what is installed, start what is running, or stop
+what is stopped. When a newer `slxdpi.cmd` is run, **[1]** becomes
+**Update**. After installing, the menu is also at `C:\slxdpi\slxdpi.cmd`.
 
 ## What it fixes
 
 | Problem | Root cause | Fix |
 |---|---|---|
-| Roblox won't start / images don't load | ISPs hijack plain DNS (even to 1.1.1.1) and return fake addresses for Roblox, its settings server and its image CDN (`tr.rbxcdn.com`…); SNI is blocked too | Local encrypted DNS resolver (DoH) + `roblox.com`/`rbxcdn.com` in the bypass list |
-| Discord connects but voice is broken/stuttering | Voice is UDP/QUIC; TCP-only tools (e.g. GoodbyeDPI) can't touch it | zapret handles QUIC (UDP 443) and voice ports (UDP 50000-65535) |
-| Card payments / 3-D Secure rejected | A global bypass mode fragments all traffic and breaks bank 3DS pages | **Hostlist mode**: only listed sites are processed, banks are never touched |
-| Some sites/games unreachable | SNI/DNS block | Add them to the list (see below) |
+| Roblox won't start / images don't load | ISPs hijack plain DNS (even to 1.1.1.1) and return fake addresses for Roblox, its settings server and image CDN; SNI is filtered too | Local encrypted DNS + `roblox.com` / `rbxcdn.com` in the bypass list |
+| Discord blocked, voice unreliable | SNI filtering; voice is UDP, which TCP-only tools can't handle | zapret handles TCP, QUIC and Discord voice packets |
+| Card payments / 3-D Secure fail | Global bypass modes tamper with all traffic, including bank pages | **Hostlist mode**: only listed sites are touched, banks never |
 
-## Why not just GoodbyeDPI?
+## How it works
 
-GoodbyeDPI is TCP-only, so it can't fix Discord voice or QUIC, and its global
-mode is the usual reason card payments stop working. SLXDPI uses zapret in
-**hostlist mode**, so the bypass applies only to the domains you list and
-leaves banking, 3-D Secure, and everything else completely untouched.
+**Encrypted DNS.** Turkish ISPs intercept ordinary DNS (port 53), even when
+it goes to 1.1.1.1 or 8.8.8.8, and answer with fake addresses for blocked
+sites. No DPI trick helps when the connection goes to the wrong server.
+SLXDPI runs dnscrypt-proxy as a local service on `127.0.0.1` and sends every
+query over HTTPS (DoH) to Cloudflare, Google or Quad9. System DNS is switched
+only after the resolver has answered, so a failure never cuts your internet.
 
-## Install
+**Automatic method detection.** Bypass methods differ between ISPs, and even
+between resellers on the same Türk Telekom line, so SLXDPI doesn't guess from
+your ISP's name. It **tests** each candidate in `config/strategies.txt` with a
+real HTTPS connection to Roblox (settings, image CDN, site) and Discord, and
+keeps the first one that works. If your ISP changes its filtering later, run
+**[4] Re-detect method**.
 
-1. Download the ZIP (Code → Download ZIP) and extract it.
-2. Right-click **`slxdpi.cmd`** → **Run as administrator**, then press **1** (Install).
-3. When it finishes: open Roblox (images should load), join a Discord voice channel.
-
-`slxdpi.cmd` is the one place to manage everything. It shows the live state
-(service, encrypted DNS, method) and only offers actions that make sense:
-it won't reinstall when installed or stop what is already stopped. After
-installing, it is also at `C:\slxdpi\slxdpi.cmd`.
-
-The installer copies files to `C:\slxdpi`, downloads the zapret binaries from
-the [official bundle](https://github.com/bol-van/zapret-win-bundle) and
-[dnscrypt-proxy](https://github.com/DNSCrypt/dnscrypt-proxy), routes all DNS
-through a local encrypted resolver, **auto-detects the bypass method that works on your
-connection**, and installs a Windows service named `SLXDPI` (auto-starts on boot).
-
-## Automatic network detection
-
-You never need to know or pick your ISP. Bypass methods differ between ISPs
-(and even between resellers on the same Türk Telekom infrastructure), so
-`autotune.bat` doesn't guess from the ISP name. It **tests** each candidate in
-`lists/strategies.txt` with a real HTTPS connection to Roblox (settings, image
-CDN, site) and Discord, keeps the first one that works in `tuned.txt`, and
-applies it to the service. The installer runs it automatically; run it again
-any time things stop working (e.g. after your ISP changes its filtering).
-
-## Daily use
-
-Everything below is also in the `slxdpi.cmd` menu.
-
-| File | Action |
-|---|---|
-| `start.bat` / `stop.bat` | Turn on / off |
-| `status.bat` | Full diagnostics: service, network, method, DNS, live reachability |
-| `autotune.bat` | Re-detect the working bypass method for your connection |
-| `uninstall.bat` | Remove the service, restore DNS |
-| `blockcheck.bat` | Deep manual search (zapret's own tool) if autotune finds nothing |
-
-## Encrypted DNS
-
-Turkish ISPs intercept ordinary DNS (port 53), even when it is sent to
-1.1.1.1 or 8.8.8.8, and answer with fake addresses for blocked sites. Then no
-DPI trick can help, because the connection goes to the wrong server. SLXDPI
-runs [dnscrypt-proxy](https://github.com/DNSCrypt/dnscrypt-proxy) as a local
-service on `127.0.0.1` and sends every query over HTTPS (DoH) to Cloudflare,
-Google or Quad9, which the ISP cannot tamper with. It works the same on
-Windows 10 and 11. System DNS is switched only after the resolver has
-answered, so a failure never cuts your internet; `uninstall.bat` restores
-automatic DNS.
-
-## Payment safety
-
-SLXDPI runs in **hostlist mode**: winws only touches the domains in
-`lists/list-general.txt`. Banks and 3-D Secure pages are **not** in that list,
-so they are never affected. `tools/check-lists.sh` verifies no banking domain
-ever slips into the list. **Never add a bank/payment domain to the list.**
+**Payment safety.** winws only touches the domains in `config/hostlist.txt`.
+Banks and 3-D Secure pages are not in that list, so they are never affected.
+`tools/check-lists.sh` verifies that no banking domain slips into the list.
+**Never add a bank or payment domain to it.**
 
 ## Adding sites
 
-Edit `lists/list-general.txt` — one root domain per line (subdomains match
-automatically, e.g. `rbxcdn.com` covers `tr.rbxcdn.com`). After editing,
-run `stop.bat` then `start.bat`.
+Edit `C:\slxdpi\config\hostlist.txt`: one root domain per line (subdomains
+match automatically, `rbxcdn.com` covers `tr.rbxcdn.com`). Then **Stop** and
+**Start** in the menu. Your list is kept when you update.
 
-Note: most blocks in Turkey are **IP/court-order** based, which no DPI tool can
-fix. Only SNI/DNS-level blocks (like Discord and Roblox) can be bypassed.
+Most blocks in Turkey are **IP / court-order** based, which no DPI tool can
+fix. Only SNI- and DNS-level blocks, like Discord and Roblox, can be bypassed.
 
 ## Not working?
 
-1. Run `status.bat` — it shows what's wrong (service, antivirus, DNS, which sites are reachable).
-2. Run `autotune.bat` to re-detect the method.
-3. Still nothing? Run `blockcheck.bat` (test `discord.com`, `tr.rbxcdn.com`), put the
-   working `--dpi-desync=...` line into `C:\slxdpi\tuned.txt`, then `stop.bat` + `start.bat`.
-4. Installer problems are logged to `C:\slxdpi\install.log`.
+1. **[5] Diagnostics** shows the service, antivirus, DNS and which sites are reachable.
+2. **[4] Re-detect method**.
+3. Still nothing: **[7] blockcheck** (test `discord.com`, `tr.rbxcdn.com`), put the
+   working `--dpi-desync=...` line into `C:\slxdpi\config\tuned.txt`, then Stop + Start.
+4. Install details are logged to `C:\slxdpi\slxdpi.log`.
+
+Do not run GoodbyeDPI at the same time. SLXDPI stops and disables a running
+GoodbyeDPI service automatically and prints the command to re-enable it.
+
+## Antivirus (false positive)
+
+Windows Defender and other antivirus engines flag zapret's WinDivert driver
+as a trojan (e.g. `Trojan:Win32/Suschil!rfn`). **This is a false positive.**
+WinDivert is a legitimate open-source packet driver, and every DPI-bypass
+tool, GoodbyeDPI included, triggers it. The installer adds a Defender
+exclusion for `C:\slxdpi`. If **Tamper Protection** blocks that, the installer
+stops and shows how to add it by hand:
+
+Windows Security → Virus & threat protection → Manage settings → Exclusions →
+Add an exclusion → Folder → `C:\slxdpi`
+
+You can inspect the scripts here and the upstream
+[zapret binaries](https://github.com/bol-van/zapret-win-bundle), or scan
+`winws.exe` on VirusTotal.
 
 ## Project layout
 
 ```
 slxdpi/
-  slxdpi.cmd         control menu (start here)
-  install.bat        installer (admin)
-  autotune.bat       auto-detects the working bypass method
-  start/stop/status/uninstall.bat
-  blockcheck.bat     deep manual search (fallback)
-  dns.bat            encrypted DNS on/off (called by installer)
-  dnscrypt-proxy.toml  local DoH resolver config (Cloudflare/Google/Quad9)
-  strategy.cmd       builds winws arguments (uses tuned.txt)
-  lists/list-general.txt   bypassed domains (NO banks)
-  lists/strategies.txt     autotune candidates, least invasive first
-  tools/check-lists.sh     list validity check
-  bin/               zapret binaries (downloaded by installer)
+  slxdpi.cmd               the only file you run (menu + all logic)
+  config/
+    hostlist.txt           bypassed domains (no banks)
+    strategies.txt         auto-detection candidates, least invasive first
+    dnscrypt-proxy.toml    local encrypted DNS (Cloudflare / Google / Quad9)
+  tools/check-lists.sh     hostlist sanity check (development)
 ```
 
-## Antivirus (false positive)
+Installed to `C:\slxdpi`: `slxdpi.cmd`, `config\` (plus the detected method
+in `tuned.txt`), `bin\` (downloaded zapret and dnscrypt-proxy) and
+`slxdpi.log`.
 
-Windows Defender and other antivirus engines flag zapret/WinDivert as a trojan
-(e.g. `Trojan:Win32/Suschil!rfn`). **This is a false positive** — WinDivert is a
-legitimate open-source packet driver, and every DPI-bypass tool (including
-GoodbyeDPI) triggers it. The installer adds a Defender exclusion for `C:\slxdpi`
-automatically so the files aren't deleted mid-install.
+## Uninstall
 
-If your antivirus still quarantines it, allow it manually:
-
-- **Windows Defender:** Virus & threat protection → under the detection choose
-  **Allow on device** (Turkish: *Cihazda izin ver*) → **Start actions**. Then add
-  a folder exclusion: Settings → Exclusions → Add → Folder → `C:\slxdpi`.
-- **Third-party AV:** add `C:\slxdpi` to its exclusions/whitelist.
-
-Prefer not to trust it? Build is just scripts + the upstream
-[zapret binaries](https://github.com/bol-van/zapret-win-bundle) — inspect both,
-or scan `winws.exe` on VirusTotal.
+Menu → **[6] Uninstall** removes the service, the WinDivert driver and the
+local DNS resolver, and restores automatic DNS. Files stay in `C:\slxdpi`;
+delete the folder afterwards if you like.
 
 ## Disclaimer
 
-SLXDPI is an anti-censorship tool for accessing lawful services that are
-blocked at the network level. Use it on networks and for purposes you are
-permitted to. It bundles no secrets and modifies only your own machine's
-network settings; `uninstall.bat` reverses everything.
+SLXDPI is an anti-censorship tool for reaching lawful services that are
+blocked at the network level. Use it where you are permitted to. It changes
+only your own machine's network settings, and Uninstall reverses them.
 
 ## Credits
 
-Built on [zapret](https://github.com/bol-van/zapret) by bol-van.
+[zapret](https://github.com/bol-van/zapret) by bol-van ·
+[dnscrypt-proxy](https://github.com/DNSCrypt/dnscrypt-proxy) by the DNSCrypt project.
 Licensed under the MIT License.

@@ -1,5 +1,5 @@
 # SLXDPI autotune candidates for TCP 443 (zapret winws desync profiles).
-# autotune.bat tries them top to bottom and keeps the FIRST one that reaches
+# slxdpi.cmd (Re-detect) tries them top to bottom and keeps the FIRST one that reaches
 # Roblox (settings + image CDN + site) and Discord. Least invasive first.
 --dpi-desync=multisplit --dpi-desync-split-pos=1,sniext+1
 --dpi-desync=multidisorder --dpi-desync-split-pos=1,midsld
