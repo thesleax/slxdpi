@@ -23,7 +23,24 @@ set "LOG=%DEST%\install.log"
 
 echo.
 echo === Installing SLXDPI -^> %DEST% ===
-if not exist "%DEST%" mkdir "%DEST%"
+
+rem --- C:\slxdpi must be a real, writable folder. A same-named FILE or a
+rem     broken link makes "if exist" true while every write fails with
+rem     "path not found". Detect that, move it aside, recreate. ---
+if exist "%DEST%\*" goto :dest_check
+if not exist "%DEST%" goto :dest_make
+echo [!] %DEST% exists but is not a normal folder:
+dir C:\ /a | find /i "slxdpi"
+set "OLDNAME=slxdpi.old-%RANDOM%"
+echo     renaming it to C:\%OLDNAME% and creating a fresh folder ...
+ren "%DEST%" "%OLDNAME%"
+:dest_make
+mkdir "%DEST%"
+:dest_check
+type nul > "%DEST%\.write-test" 2>nul
+if not exist "%DEST%\.write-test" goto :dest_unwritable
+del "%DEST%\.write-test" >nul 2>&1
+
 echo SLXDPI install %DATE% %TIME% > "%LOG%"
 echo SRC=%SRC% >> "%LOG%"
 
@@ -138,6 +155,14 @@ rem ============================================================
 :notadmin
 echo [ERROR] Run this file as ADMINISTRATOR.
 echo         Right-click ^> "Run as administrator"
+pause
+exit /b 1
+
+:dest_unwritable
+echo [ERROR] Cannot write into %DEST%. What is there right now:
+dir C:\ /a | find /i "slxdpi"
+echo         Delete or rename C:\slxdpi in File Explorer, then run this again.
+echo         If it keeps failing, send this screen.
 pause
 exit /b 1
 

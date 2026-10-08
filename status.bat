@@ -4,6 +4,9 @@ rem  SLXDPI - diagnostics. Paste this output when asking for help.
 rem ============================================================
 echo === SLXDPI diagnostics ===
 echo.
+echo [install folder]
+if exist "C:\slxdpi\*" (echo   C:\slxdpi: folder OK) else (echo   C:\slxdpi: NOT a normal folder or missing & dir C:\ /a | find /i "slxdpi")
+echo.
 echo [service]
 sc query SLXDPI | find "STATE" || echo   SLXDPI service NOT installed (install did not finish)
 if exist "C:\slxdpi\bin\zapret-winws\winws.exe" (echo   winws.exe: present) else (echo   winws.exe: MISSING - antivirus deleted it or download failed)
