@@ -20,35 +20,50 @@ set "BIN=%DEST%\bin"
 set "WINWS=%BIN%\zapret-winws\winws.exe"
 set "LISTDIR=%DEST%\lists"
 set "SVC=SLXDPI"
-set "ZIP=%TEMP%\slxdpi-zapret.zip"
-set "EX=%TEMP%\slxdpi-zapret"
+set "DL=%DEST%\_dl"
+set "ZIP=%DL%\bundle.zip"
 
 echo.
 echo === Installing SLXDPI -> %DEST% ===
+if not exist "%DEST%" mkdir "%DEST%"
 
-rem --- 1) Copy files to a fixed, space-free path ---
+rem --- 0) Windows Defender exclusion. zapret/WinDivert is flagged as a FALSE
+rem     POSITIVE (Trojan:Win32/...) because it inspects packets. Excluding our
+rem     own folder stops Defender from deleting winws.exe mid-install. ---
+echo [*] Adding Windows Defender exclusion for %DEST% ...
+powershell -NoProfile -Command "try { Add-MpPreference -ExclusionPath '%DEST%' -ErrorAction Stop } catch {}"
+
+rem --- 1) Copy project files into the (now excluded) folder ---
 if /i not "%SRC%"=="%DEST%\" (
-  if not exist "%DEST%" mkdir "%DEST%"
-  xcopy "%SRC%lists"        "%LISTDIR%\"   /e /i /y >nul
-  copy  /y "%SRC%strategy.cmd" "%DEST%\"   >nul
-  copy  /y "%SRC%*.bat"        "%DEST%\"   >nul
+  if exist "%SRC%lists\list-general.txt" (
+    xcopy "%SRC%lists"        "%LISTDIR%\"   /e /i /y >nul
+    copy  /y "%SRC%strategy.cmd" "%DEST%\"   >nul
+    copy  /y "%SRC%*.bat"        "%DEST%\"   >nul
+  )
+)
+if not exist "%LISTDIR%\list-general.txt" (
+  echo [ERROR] lists\list-general.txt not found. Run install.bat from inside the
+  echo         extracted slxdpi folder (the one that contains the 'lists' folder^).
+  pause & exit /b 1
 )
 
-rem --- 2) Download zapret binaries (if missing) ---
+rem --- 2) Download zapret binaries INTO the excluded folder (if missing) ---
 if not exist "%WINWS%" (
   echo [*] Downloading zapret Windows bundle...
-  rmdir /s /q "%EX%" >nul 2>&1
+  rmdir /s /q "%DL%" >nul 2>&1
+  mkdir "%DL%"
   powershell -NoProfile -Command ^
-    "$ProgressPreference='SilentlyContinue'; try { Invoke-WebRequest -UseBasicParsing 'https://github.com/bol-van/zapret-win-bundle/archive/refs/heads/master.zip' -OutFile '%ZIP%'; Expand-Archive -Force -LiteralPath '%ZIP%' -DestinationPath '%EX%' } catch { exit 1 }"
+    "$ProgressPreference='SilentlyContinue'; try { Invoke-WebRequest -UseBasicParsing 'https://github.com/bol-van/zapret-win-bundle/archive/refs/heads/master.zip' -OutFile '%ZIP%'; Expand-Archive -Force -LiteralPath '%ZIP%' -DestinationPath '%DL%' } catch { exit 1 }"
   if errorlevel 1 (
-    echo [ERROR] Download failed. GitHub may be blocked on your network.
-    echo         Download manually: https://github.com/bol-van/zapret-win-bundle
-    echo         Extract its folders into %BIN% and run this again.
+    echo [ERROR] Download failed. GitHub may be blocked, or antivirus deleted it.
+    echo         Manual fix: download https://github.com/bol-van/zapret-win-bundle
+    echo         (Code ^> Download ZIP^), then copy its inner folders into %BIN%
+    echo         and run this again. See README "Antivirus" section.
     pause & exit /b 1
   )
   if not exist "%BIN%" mkdir "%BIN%"
-  xcopy "%EX%\zapret-win-bundle-master\*" "%BIN%\" /e /i /y >nul
-  del "%ZIP%" >nul 2>&1
+  xcopy "%DL%\zapret-win-bundle-master\*" "%BIN%\" /e /i /y >nul
+  rmdir /s /q "%DL%" >nul 2>&1
 )
 if not exist "%WINWS%" (
   echo [ERROR] winws.exe not found: %WINWS%

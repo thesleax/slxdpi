@@ -82,6 +82,25 @@ slxdpi/
   bin/               zapret binaries (downloaded by installer)
 ```
 
+## Antivirus (false positive)
+
+Windows Defender and other antivirus engines flag zapret/WinDivert as a trojan
+(e.g. `Trojan:Win32/Suschil!rfn`). **This is a false positive** — WinDivert is a
+legitimate open-source packet driver, and every DPI-bypass tool (including
+GoodbyeDPI) triggers it. The installer adds a Defender exclusion for `C:\slxdpi`
+automatically so the files aren't deleted mid-install.
+
+If your antivirus still quarantines it, allow it manually:
+
+- **Windows Defender:** Virus & threat protection → under the detection choose
+  **Allow on device** (Turkish: *Cihazda izin ver*) → **Start actions**. Then add
+  a folder exclusion: Settings → Exclusions → Add → Folder → `C:\slxdpi`.
+- **Third-party AV:** add `C:\slxdpi` to its exclusions/whitelist.
+
+Prefer not to trust it? Build is just scripts + the upstream
+[zapret binaries](https://github.com/bol-van/zapret-win-bundle) — inspect both,
+or scan `winws.exe` on VirusTotal.
+
 ## Disclaimer
 
 SLXDPI is an anti-censorship tool for accessing lawful services that are
