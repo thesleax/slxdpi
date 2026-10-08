@@ -20,6 +20,8 @@ set "LISTDIR=%DEST%\lists"
 set "SVC=SLXDPI"
 set "DL=%DEST%\_dl"
 set "LOG=%DEST%\install.log"
+set "DCVER=2.1.18"
+set "DCX=%BIN%\dnscrypt\dnscrypt-proxy.exe"
 
 echo.
 echo === Installing SLXDPI -^> %DEST% ===
@@ -56,7 +58,7 @@ rem     Copied from next to install.bat if complete, else fetched from GitHub.
 rem     Exception: list-general.txt is kept if present (user-added sites). ---
 echo [2/7] Project files ...
 set "PSRC=%SRC%"
-if exist "%SRC%lists\strategies.txt" goto :copy_files
+if exist "%SRC%dnscrypt-proxy.toml" goto :copy_files
 echo       not next to install.bat, fetching from GitHub ...
 call :fetch "https://github.com/thesleax/slxdpi/archive/refs/heads/main.zip"
 if errorlevel 1 goto :fail
@@ -66,10 +68,11 @@ echo       copying from %PSRC% >> "%LOG%"
 if not exist "%LISTDIR%" mkdir "%LISTDIR%"
 copy /y "%PSRC%lists\strategies.txt" "%LISTDIR%\" >> "%LOG%" 2>&1
 if not exist "%LISTDIR%\list-general.txt" copy /y "%PSRC%lists\list-general.txt" "%LISTDIR%\" >> "%LOG%" 2>&1
-for %%F in (strategy.cmd autotune.bat start.bat stop.bat status.bat uninstall.bat blockcheck.bat dns.bat) do copy /y "%PSRC%%%F" "%DEST%\" >> "%LOG%" 2>&1
+for %%F in (dnscrypt-proxy.toml strategy.cmd autotune.bat start.bat stop.bat status.bat uninstall.bat blockcheck.bat dns.bat) do copy /y "%PSRC%%%F" "%DEST%\" >> "%LOG%" 2>&1
 if not exist "%LISTDIR%\list-general.txt" goto :nolist
 if not exist "%LISTDIR%\strategies.txt" goto :nolist
 if not exist "%DEST%\autotune.bat" goto :nolist
+if not exist "%DEST%\dnscrypt-proxy.toml" goto :nolist
 echo       OK
 
 rem --- [3/7] zapret binaries ---
@@ -84,9 +87,25 @@ if not exist "%WINWS%" goto :nowinws
 rmdir /s /q "%DL%" >nul 2>&1
 echo       OK
 
-rem --- [4/7] DNS -> Cloudflare DoH (fixes DNS poisoning; must precede tests) ---
+rem --- [3b] dnscrypt-proxy (local encrypted DNS). Pinned release; CPU auto-detected ---
+echo       encrypted DNS resolver ...
+if exist "%DCX%" goto :dc_ok
+set "DCARCH=win64"
+if /i "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "DCARCH=winarm"
+if /i "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "DCARCH=winarm"
+call :fetch "https://github.com/DNSCrypt/dnscrypt-proxy/releases/download/%DCVER%/dnscrypt-proxy-%DCARCH%-%DCVER%.zip"
+if errorlevel 1 goto :fail
+if not exist "%BIN%\dnscrypt" mkdir "%BIN%\dnscrypt"
+for /d %%D in ("%DL%\win*") do xcopy "%%D\*" "%BIN%\dnscrypt\" /e /i /y >> "%LOG%" 2>&1
+rmdir /s /q "%DL%" >nul 2>&1
+:dc_ok
+if not exist "%DCX%" goto :nodc
+echo       OK
+
+rem --- [4/7] Encrypted DNS (defeats ISP DNS hijacking; must precede tests) ---
 echo [4/7] Encrypted DNS ...
 call "%DEST%\dns.bat" set
+if errorlevel 1 echo       continuing without encrypted DNS - Roblox may still fail
 
 rem --- [5/7] Auto-detect the bypass method that works on this network ---
 echo [5/7] Detecting the right bypass method for your network ...
@@ -183,6 +202,11 @@ exit /b 1
 
 :nolist
 echo [ERROR] Project files missing in %DEST%. Details: %LOG%
+goto :fail
+
+:nodc
+echo [ERROR] dnscrypt-proxy.exe missing after extract: %DCX%
+echo         Antivirus may have removed it (Protection history). Details: %LOG%
 goto :fail
 
 :nowinws

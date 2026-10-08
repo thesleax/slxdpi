@@ -4,14 +4,14 @@ A professional DPI-bypass system for Turkey. It restores access to services
 blocked by ISP deep-packet inspection — **Discord** (including voice) and
 **Roblox** (including images) — **without breaking card payments**.
 
-Engine: **[zapret](https://github.com/bol-van/zapret) (winws)** · Windows service · encrypted DNS (DoH).
+Engine: **[zapret](https://github.com/bol-van/zapret) (winws)** · Windows service · local encrypted DNS ([dnscrypt-proxy](https://github.com/DNSCrypt/dnscrypt-proxy), DoH).
 **Windows only.** Runs as Administrator.
 
 ## What it fixes
 
 | Problem | Root cause | Fix |
 |---|---|---|
-| Roblox opens but images don't load | Images come from a separate CDN (`tr.rbxcdn.com`, `t0–t7`, `c0–c7`) that is DNS-poisoned + SNI-blocked | `rbxcdn.com` in the bypass list + encrypted DoH DNS |
+| Roblox won't start / images don't load | ISPs hijack plain DNS (even to 1.1.1.1) and return fake addresses for Roblox, its settings server and its image CDN (`tr.rbxcdn.com`…); SNI is blocked too | Local encrypted DNS resolver (DoH) + `roblox.com`/`rbxcdn.com` in the bypass list |
 | Discord connects but voice is broken/stuttering | Voice is UDP/QUIC; TCP-only tools (e.g. GoodbyeDPI) can't touch it | zapret handles QUIC (UDP 443) and voice ports (UDP 50000-65535) |
 | Card payments / 3-D Secure rejected | A global bypass mode fragments all traffic and breaks bank 3DS pages | **Hostlist mode**: only listed sites are processed, banks are never touched |
 | Some sites/games unreachable | SNI/DNS block | Add them to the list (see below) |
@@ -30,8 +30,9 @@ leaves banking, 3-D Secure, and everything else completely untouched.
 3. When it finishes: open Roblox (images should load), join a Discord voice channel.
 
 The installer copies files to `C:\slxdpi`, downloads the zapret binaries from
-the [official bundle](https://github.com/bol-van/zapret-win-bundle), switches
-DNS to Cloudflare DoH, **auto-detects the bypass method that works on your
+the [official bundle](https://github.com/bol-van/zapret-win-bundle) and
+[dnscrypt-proxy](https://github.com/DNSCrypt/dnscrypt-proxy), routes all DNS
+through a local encrypted resolver, **auto-detects the bypass method that works on your
 connection**, and installs a Windows service named `SLXDPI` (auto-starts on boot).
 
 ## Automatic network detection
@@ -53,6 +54,18 @@ any time things stop working (e.g. after your ISP changes its filtering).
 | `autotune.bat` | Re-detect the working bypass method for your connection |
 | `uninstall.bat` | Remove the service, restore DNS |
 | `blockcheck.bat` | Deep manual search (zapret's own tool) if autotune finds nothing |
+
+## Encrypted DNS
+
+Turkish ISPs intercept ordinary DNS (port 53), even when it is sent to
+1.1.1.1 or 8.8.8.8, and answer with fake addresses for blocked sites. Then no
+DPI trick can help, because the connection goes to the wrong server. SLXDPI
+runs [dnscrypt-proxy](https://github.com/DNSCrypt/dnscrypt-proxy) as a local
+service on `127.0.0.1` and sends every query over HTTPS (DoH) to Cloudflare,
+Google or Quad9, which the ISP cannot tamper with. It works the same on
+Windows 10 and 11. System DNS is switched only after the resolver has
+answered, so a failure never cuts your internet; `uninstall.bat` restores
+automatic DNS.
 
 ## Payment safety
 
@@ -86,7 +99,8 @@ slxdpi/
   autotune.bat       auto-detects the working bypass method
   start/stop/status/uninstall.bat
   blockcheck.bat     deep manual search (fallback)
-  dns.bat            DoH on/off (called by installer)
+  dns.bat            encrypted DNS on/off (called by installer)
+  dnscrypt-proxy.toml  local DoH resolver config (Cloudflare/Google/Quad9)
   strategy.cmd       builds winws arguments (uses tuned.txt)
   lists/list-general.txt   bypassed domains (NO banks)
   lists/strategies.txt     autotune candidates, least invasive first

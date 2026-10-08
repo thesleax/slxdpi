@@ -11,6 +11,7 @@ echo [service]
 sc query SLXDPI | find "STATE" || echo   SLXDPI service NOT installed (install did not finish)
 if exist "C:\slxdpi\bin\zapret-winws\winws.exe" (echo   winws.exe: present) else (echo   winws.exe: MISSING - antivirus deleted it or download failed)
 tasklist /fi "imagename eq winws.exe" | find /i "winws.exe" >nul && echo   winws process: running || echo   winws process: NOT running
+sc query dnscrypt-proxy | find "RUNNING" >nul && echo   encrypted DNS resolver: running || echo   encrypted DNS resolver: NOT running
 echo.
 echo [network]
 curl -s --max-time 5 -w "\n" https://ipinfo.io/org || echo   (could not detect)

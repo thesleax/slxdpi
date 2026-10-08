@@ -1,32 +1,65 @@
 @echo off
+setlocal
 rem ============================================================
-rem  SLXDPI - switch DNS to encrypted DoH / restore it
+rem  SLXDPI - encrypted DNS via a local resolver (dnscrypt-proxy)
 rem  Usage:  dns.bat set   |   dns.bat restore
-rem  Why: in Turkey, CDN names like rbxcdn are DNS-poisoned;
-rem       encrypted DoH bypasses that (Roblox images load).
+rem  Why: Turkish ISPs hijack plain DNS (port 53) even to 1.1.1.1
+rem       and return fake answers for Roblox/Discord. dnscrypt-proxy
+rem       listens on 127.0.0.1 and sends queries over HTTPS (DoH),
+rem       which the ISP can't tamper with. Same on Windows 10 and 11.
+rem  Safety: system DNS is switched ONLY after the local resolver
+rem          has answered, so a failure never cuts the internet.
 rem ============================================================
+set "DC=C:\slxdpi\bin\dnscrypt"
+set "Q=clientsettingscdn.roblox.com"
+if /i "%~1"=="restore" goto :restore
 
-rem --- Find the active network adapter ---
-for /f "delims=" %%I in ('powershell -NoProfile -Command "(Get-NetAdapter -Physical ^| Where-Object {$_.Status -eq 'Up'} ^| Select-Object -First 1 -ExpandProperty Name)"') do set "IF=%%I"
-if "%IF%"=="" ( echo [DNS] No active adapter found, skipping. & exit /b 0 )
+if not exist "%DC%\dnscrypt-proxy.exe" goto :missing
+copy /y "%~dp0dnscrypt-proxy.toml" "%DC%\dnscrypt-proxy.toml" >nul
 
-if /i "%~1"=="restore" goto restore
+rem (Re)install the resolver service from its own folder, as upstream does
+pushd "%DC%"
+dnscrypt-proxy.exe -service stop >nul 2>&1
+dnscrypt-proxy.exe -service uninstall >nul 2>&1
+dnscrypt-proxy.exe -service install >nul 2>&1
+dnscrypt-proxy.exe -service start >nul 2>&1
+popd
 
-rem --- SET: Cloudflare DoH ---
-netsh interface ipv4 set dnsservers name="%IF%" static 1.1.1.1 primary >nul 2>&1
-netsh interface ipv4 add dnsservers name="%IF%" 1.0.0.1 index=2   >nul 2>&1
-netsh interface ipv6 set dnsservers name="%IF%" static 2606:4700:4700::1111 primary >nul 2>&1
-rem Windows 11: register DoH template for these resolvers (silently ignored on Win10)
-netsh dns add encryption server=1.1.1.1 dohtemplate=https://cloudflare-dns.com/dns-query autoupgrade=yes udpfallback=no >nul 2>&1
-netsh dns add encryption server=1.0.0.1 dohtemplate=https://cloudflare-dns.com/dns-query autoupgrade=yes udpfallback=no >nul 2>&1
-netsh dns add encryption server=2606:4700:4700::1111 dohtemplate=https://cloudflare-dns.com/dns-query autoupgrade=yes udpfallback=no >nul 2>&1
+rem Wait (up to ~30 s) until the local resolver really answers
+set "TRIES=0"
+:wait
+set /a TRIES+=1
+powershell -NoProfile -Command "try { Resolve-DnsName %Q% -Server 127.0.0.1 -DnsOnly -QuickTimeout -ErrorAction Stop | Out-Null } catch { exit 1 }"
+if not errorlevel 1 goto :answered
+if %TRIES% geq 10 goto :noanswer
+timeout /t 3 /nobreak >nul
+goto :wait
+
+:answered
+rem Point every active adapter (Wi-Fi, Ethernet, ...) at the local resolver
+powershell -NoProfile -Command "Get-NetAdapter | Where-Object Status -eq 'Up' | ForEach-Object { Set-DnsClientServerAddress -InterfaceIndex $_.ifIndex -ServerAddresses ('127.0.0.1','::1'); '      adapter: ' + $_.Name }"
 ipconfig /flushdns >nul 2>&1
-echo [DNS] "%IF%" -^> Cloudflare DoH (encrypted) enabled.
+echo       [OK] encrypted DNS active (local DoH resolver on 127.0.0.1)
 exit /b 0
 
+:noanswer
+echo       [!] local encrypted resolver did not answer - system DNS left unchanged.
+echo           DoH (HTTPS to 1.1.1.1 / 8.8.8.8 / 9.9.9.9) may be blocked on this network.
+exit /b 1
+
+:missing
+echo       [!] dnscrypt-proxy.exe missing in %DC% - run install.bat.
+exit /b 1
+
 :restore
-netsh interface ipv4 set dnsservers name="%IF%" dhcp >nul 2>&1
-netsh interface ipv6 set dnsservers name="%IF%" dhcp >nul 2>&1
+rem DNS back to automatic first, then stop the resolver (no outage window)
+powershell -NoProfile -Command "Get-NetAdapter | ForEach-Object { Set-DnsClientServerAddress -InterfaceIndex $_.ifIndex -ResetServerAddresses -ErrorAction SilentlyContinue }"
+if not exist "%DC%\dnscrypt-proxy.exe" goto :restored
+pushd "%DC%"
+dnscrypt-proxy.exe -service stop >nul 2>&1
+dnscrypt-proxy.exe -service uninstall >nul 2>&1
+popd
+:restored
 ipconfig /flushdns >nul 2>&1
-echo [DNS] "%IF%" -^> restored to automatic (DHCP) DNS.
+echo       [OK] DNS restored to automatic (DHCP).
 exit /b 0

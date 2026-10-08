@@ -1,0 +1,36 @@
+## SLXDPI - local encrypted DNS resolver (dnscrypt-proxy, DoH only).
+## Windows sends every DNS query to 127.0.0.1; this forwards it over HTTPS
+## to Cloudflare / Google / Quad9, so the ISP can't hijack or poison it
+## (Turkish ISPs intercept plain port-53 DNS even to 1.1.1.1).
+## Works the same on Windows 10 and 11. Installed by dns.bat.
+
+listen_addresses = ['127.0.0.1:53', '[::1]:53']
+
+server_names = ['cloudflare', 'google', 'quad9']
+ipv4_servers = true
+ipv6_servers = false
+dnscrypt_servers = false
+doh_servers = true
+
+require_dnssec = false
+require_nolog = false
+require_nofilter = false
+
+## Servers below carry their IP in the stamp, so no bootstrap lookup is
+## needed; these are only a last-resort fallback.
+bootstrap_resolvers = ['1.1.1.1:53', '8.8.8.8:53']
+ignore_system_dns = true
+netprobe_timeout = 60
+
+cache = true
+block_ipv6 = false
+
+[static]
+  [static.cloudflare]
+  stamp = 'sdns://AgcAAAAAAAAABzEuMS4xLjEAEmNsb3VkZmxhcmUtZG5zLmNvbQovZG5zLXF1ZXJ5'
+
+  [static.google]
+  stamp = 'sdns://AgcAAAAAAAAABzguOC44LjgACmRucy5nb29nbGUKL2Rucy1xdWVyeQ'
+
+  [static.quad9]
+  stamp = 'sdns://AgcAAAAAAAAABzkuOS45LjkADWRucy5xdWFkOS5uZXQKL2Rucy1xdWVyeQ'
