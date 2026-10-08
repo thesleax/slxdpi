@@ -1,0 +1,8 @@
+# zapret binaries are downloaded by install.bat, not committed
+bin/
+
+# OS / editor noise
+Thumbs.db
+desktop.ini
+.DS_Store
+*.log
