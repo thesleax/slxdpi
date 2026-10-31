@@ -23,7 +23,9 @@ set "BIN=%DEST%\bin"
 set "WINWS=%BIN%\zapret-winws\winws.exe"
 set "DCDIR=%BIN%\dnscrypt"
 set "DCX=%DCDIR%\dnscrypt-proxy.exe"
-set "DCVER=2.1.18"
+rem Downloads are pinned and their binaries checked against these SHA-256 hashes.
+set "ZCOMMIT=4840909b1a26389cb72c46be5301d610b3768928"
+set "DCVER=2.1.20"
 set "DL=%DEST%\_dl"
 set "LOG=%DEST%\slxdpi.log"
 set "SVC=SLXDPI"
@@ -296,11 +298,18 @@ exit /b 1
 :get_zapret
 if exist "%WINWS%" exit /b 0
 echo       downloading zapret (~20 MB) ...
-call :fetch "https://github.com/bol-van/zapret-win-bundle/archive/refs/heads/master.zip"
+call :fetch "https://github.com/bol-van/zapret-win-bundle/archive/%ZCOMMIT%.zip"
 if errorlevel 1 exit /b 1
-xcopy "%DL%\zapret-win-bundle-master\*" "%BIN%\" /e /i /y >> "%LOG%" 2>&1
+xcopy "%DL%\zapret-win-bundle-%ZCOMMIT%\*" "%BIN%\" /e /i /y >> "%LOG%" 2>&1
 rmdir /s /q "%DL%" >nul 2>&1
-if exist "%WINWS%" exit /b 0
+set "ZDIR=%BIN%\zapret-winws"
+if not exist "%WINWS%" goto :zapret_missing
+call :verify "%ZDIR%\winws.exe" 2da71e80878dc270ac83f5893ecbb841f9752a57f1da8ff9325636b4346bc632 || goto :zapret_bad
+call :verify "%ZDIR%\WinDivert64.sys" 8da085332782708d8767bcace5327a6ec7283c17cfb85e40b03cd2323a90ddc2 || goto :zapret_bad
+call :verify "%ZDIR%\WinDivert.dll" 16abd6a029e65557c6a309bea7b13bf81fff4e193567582e1cddbf6719f323e0 || goto :zapret_bad
+call :verify "%ZDIR%\cygwin1.dll" 103104a52e5293ce418944725df19e2bf81ad9269b9a120d71d39028e821499b || goto :zapret_bad
+exit /b 0
+:zapret_missing
 echo [ERROR] winws.exe missing after extract: %WINWS%
 echo         Antivirus probably removed it: Windows Security ^> Protection history.
 exit /b 1
@@ -308,17 +317,31 @@ exit /b 1
 :get_dnscrypt
 if exist "%DCX%" exit /b 0
 set "DCARCH=win64"
+set "DCSHA=312274e07e0084088f61bd60f57ee5c3dcf4307f5c1f5dbcf374fd6f5d4fc7d0"
 if /i "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "DCARCH=winarm"
 if /i "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "DCARCH=winarm"
+if "%DCARCH%"=="winarm" set "DCSHA=0e72d38a516f23e2203795fd6c52ca9b83b3b15b13b0df673290ab5c4e95d9ef"
 echo       downloading dnscrypt-proxy %DCVER% (%DCARCH%) ...
 call :fetch "https://github.com/DNSCrypt/dnscrypt-proxy/releases/download/%DCVER%/dnscrypt-proxy-%DCARCH%-%DCVER%.zip"
 if errorlevel 1 exit /b 1
 if not exist "%DCDIR%" mkdir "%DCDIR%"
 for /d %%D in ("%DL%\win*") do xcopy "%%D\*" "%DCDIR%\" /e /i /y >> "%LOG%" 2>&1
 rmdir /s /q "%DL%" >nul 2>&1
+if exist "%DCX%" call :verify "%DCX%" %DCSHA% || (rmdir /s /q "%DCDIR%" >nul 2>&1 & exit /b 1)
 if exist "%DCX%" exit /b 0
 echo [ERROR] dnscrypt-proxy.exe missing after extract: %DCX%
 echo         Antivirus may have removed it: Windows Security ^> Protection history.
+exit /b 1
+
+:zapret_bad
+rmdir /s /q "%ZDIR%" >nul 2>&1
+exit /b 1
+
+rem ---- :verify <file> <sha256> -> exit 1 unless the file has exactly this SHA-256 ----
+:verify
+certutil -hashfile "%~1" SHA256 2>nul | findstr /i /x "%~2" >nul && exit /b 0
+echo [ERROR] %~nx1 failed its SHA-256 check: it is not the file SLXDPI was tested with.
+echo verify failed: %~1 >> "%LOG%"
 exit /b 1
 
 rem ---- :fetch <url> -> download + extract into %DL% (curl+tar, PowerShell fallback) ----

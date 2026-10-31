@@ -106,6 +106,11 @@ You can inspect the scripts here and the upstream
 [zapret binaries](https://github.com/bol-van/zapret-win-bundle), or scan
 `winws.exe` on VirusTotal.
 
+SLXDPI always downloads the same zapret-win-bundle commit and dnscrypt-proxy
+release, and checks the SHA-256 of `winws.exe`, the WinDivert driver and
+`dnscrypt-proxy.exe` before installing them. A file that doesn't match is
+deleted and the install stops.
+
 ## Project layout
 
 ```
