@@ -327,10 +327,15 @@ if errorlevel 1 exit /b 1
 if not exist "%DCDIR%" mkdir "%DCDIR%"
 for /d %%D in ("%DL%\win*") do xcopy "%%D\*" "%DCDIR%\" /e /i /y >> "%LOG%" 2>&1
 rmdir /s /q "%DL%" >nul 2>&1
-if exist "%DCX%" call :verify "%DCX%" %DCSHA% || (rmdir /s /q "%DCDIR%" >nul 2>&1 & exit /b 1)
-if exist "%DCX%" exit /b 0
+if not exist "%DCX%" goto :dnscrypt_missing
+call :verify "%DCX%" %DCSHA% || goto :dnscrypt_bad
+exit /b 0
+:dnscrypt_missing
 echo [ERROR] dnscrypt-proxy.exe missing after extract: %DCX%
 echo         Antivirus may have removed it: Windows Security ^> Protection history.
+exit /b 1
+:dnscrypt_bad
+rmdir /s /q "%DCDIR%" >nul 2>&1
 exit /b 1
 
 :zapret_bad
@@ -374,9 +379,8 @@ rem ============================================================
 :dns_set
 if not exist "%DCX%" goto :ds_missing
 copy /y "%CFG%\dnscrypt-proxy.toml" "%DCDIR%\dnscrypt-proxy.toml" >nul
+call :dc_remove
 pushd "%DCDIR%"
-dnscrypt-proxy.exe -service stop >nul 2>&1
-dnscrypt-proxy.exe -service uninstall >nul 2>&1
 dnscrypt-proxy.exe -service install >nul 2>&1
 dnscrypt-proxy.exe -service start >nul 2>&1
 popd
@@ -404,14 +408,17 @@ exit /b 1
 :dns_restore
 rem DNS back to automatic first, then stop the resolver (no outage window)
 powershell -NoProfile -Command "Get-NetAdapter | ForEach-Object { Set-DnsClientServerAddress -InterfaceIndex $_.ifIndex -ResetServerAddresses -ErrorAction SilentlyContinue }"
-if not exist "%DCX%" goto :dr_done
+call :dc_remove
+ipconfig /flushdns >nul 2>&1
+echo       [OK] DNS restored to automatic (DHCP).
+exit /b 0
+
+:dc_remove
+if not exist "%DCX%" exit /b 0
 pushd "%DCDIR%"
 dnscrypt-proxy.exe -service stop >nul 2>&1
 dnscrypt-proxy.exe -service uninstall >nul 2>&1
 popd
-:dr_done
-ipconfig /flushdns >nul 2>&1
-echo       [OK] DNS restored to automatic (DHCP).
 exit /b 0
 
 rem ============================================================
@@ -510,8 +517,7 @@ exit /b 0
 :svc_create
 call :build_args
 echo ARGS=%SLX_ARGS% >> "%LOG%"
-sc stop %SVC% >nul 2>&1
-sc delete %SVC% >nul 2>&1
+call :svc_remove
 timeout /t 1 /nobreak >nul
 sc create %SVC% binPath= "%WINWS% %SLX_ARGS%" start= auto DisplayName= "SLXDPI (DPI bypass)" >> "%LOG%" 2>&1
 if errorlevel 1 goto :sc_fail
@@ -520,6 +526,11 @@ exit /b 0
 :sc_fail
 echo [ERROR] Could not create the Windows service. Details: %LOG%
 exit /b 1
+
+:svc_remove
+sc stop %SVC% >nul 2>&1
+sc delete %SVC% >nul 2>&1
+exit /b 0
 
 :svc_start
 sc start %SVC% >> "%LOG%" 2>&1
@@ -537,8 +548,7 @@ rem ============================================================
 :uninstall
 echo.
 echo === Removing SLXDPI ===
-sc stop %SVC% >nul 2>&1
-sc delete %SVC% >nul 2>&1
+call :svc_remove
 call :dns_restore
 sc stop windivert >nul 2>&1
 sc delete windivert >nul 2>&1
